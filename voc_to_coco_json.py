@@ -8,8 +8,8 @@ import os, json
 
 from xml.etree.ElementTree import ElementTree
 
-XML_PATH = "lxy/train/"
-JSON_PATH = "lxy.json"
+XML_PATH = 'train'
+JSON_PATH = "spore.json"
 json_obj = {}
 images = []
 annotations = []
@@ -90,6 +90,7 @@ for xml in xml_names:
 
             annotation["area"] = area
             annotation["iscrowd"] = 0
+            annotation['segmentation'] = []
             annotation["image_id"] = str(file_name)
             annotation["bbox"] = bbox
             annotation["category_id"] = str(name_nodes[index].text)
