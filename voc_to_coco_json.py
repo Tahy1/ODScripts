@@ -5,17 +5,19 @@
 # @Description: xml转换到coco数据集json格式
 
 import os, json
-
+from tqdm import tqdm
 from xml.etree.ElementTree import ElementTree
 
-XML_PATH = 'train'
-JSON_PATH = "spore.json"
+XML_PATH = 'anns'
+JSON_PATH = "eval_perfect.json"
 json_obj = {}
 images = []
 annotations = []
 categories = []
-categories_list = []
-annotation_id = 1
+categories_dict = {}
+annotation_idx = 1
+img_idx = 1
+cls_idx = 1
 
 def read_xml(in_path):
     '''读取并解析xml文件'''
@@ -54,7 +56,7 @@ for xml in os.listdir(XML_PATH):
     if xml.split('.')[-1] == 'xml':
         xml_names.append(xml)
 
-for xml in xml_names:
+for xml in tqdm(xml_names):
     tree = read_xml(XML_PATH + "/" + xml)
     object_nodes = get_node_by_keyvalue(find_nodes(tree, "object"), {})
     if len(object_nodes) == 0:
@@ -68,7 +70,7 @@ for xml in xml_names:
         image["width"] = int(width_nodes[0].text)
         height_nodes = get_node_by_keyvalue(find_nodes(tree, "size/height"), {})
         image["height"] = int(height_nodes[0].text)
-        image["id"] = str(file_name)
+        image["id"] = img_idx
         images.append(image)    #构建images
 
         name_nodes = get_node_by_keyvalue(find_nodes(tree, "object/name"), {})
@@ -76,8 +78,13 @@ for xml in xml_names:
         ymin_nodes = get_node_by_keyvalue(find_nodes(tree, "object/bndbox/ymin"), {})
         xmax_nodes = get_node_by_keyvalue(find_nodes(tree, "object/bndbox/xmax"), {})
         ymax_nodes = get_node_by_keyvalue(find_nodes(tree, "object/bndbox/ymax"), {})
-       # print ymax_nodes
         for index, node in enumerate(object_nodes):
+            category_name = str(name_nodes[index].text)
+            if categories_dict.get(category_name) is None:
+                categories_dict[category_name] = cls_idx
+                categories.append(dict(id=cls_idx, name=category_name, supercategory='nothing'))
+                cls_idx += 1
+            category_idx = categories_dict[category_name]
             annotation = {}
             bbox = []
             width = int(xmax_nodes[index].text) - int(xmin_nodes[index].text)
@@ -91,30 +98,21 @@ for xml in xml_names:
             annotation["area"] = area
             annotation["iscrowd"] = 0
             annotation['segmentation'] = []
-            annotation["image_id"] = str(file_name)
+            annotation["image_id"] = img_idx
             annotation["bbox"] = bbox
-            annotation["category_id"] = str(name_nodes[index].text)
-            annotation["id"] = annotation_id
-            annotation_id += 1
+            annotation["category_id"] = category_idx
+            annotation["id"] = annotation_idx
+            annotation_idx += 1
             annotation["ignore"] = 0
             annotations.append(annotation)
-
-            if str(name_nodes[index].text) in categories_list:
-                pass
-            else:
-                categories_list.append(str(name_nodes[index].text))
-                categorie = {}
-                categorie["id"] = str(name_nodes[index].text)
-                categorie["name"] = name_nodes[index].text
-                categories.append(categorie)
+        img_idx += 1
 
 json_obj["images"] = images
 json_obj["annotations"] = annotations
 json_obj["categories"] = categories
 
+print('Writing annotations into json...')
 f = open(JSON_PATH, "w")
-#json.dump(json_obj, f)
-json_str = json.dumps(json_obj)
-f.write(json_str)
+json.dump(json_obj, f)
 f.close()
 print("------------------End-------------------")
